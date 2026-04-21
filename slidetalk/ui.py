@@ -187,7 +187,7 @@ def _sidebar() -> tuple[str, str, str, int, bool, str]:
     st.sidebar.caption(
         f"한 장 슬라이드 전용 · Community Cloud 배포 기준 최대 {MAX_SECONDS_PER_SLIDE}초 · 현재 목표 {target_seconds}초"
     )
-    enable_audio = st.sidebar.toggle("오디오 생성", value=False)
+    enable_audio = st.sidebar.toggle("오디오 생성", value=True)
     voice_style = st.sidebar.selectbox("오디오 스타일", ["또렷한 발표", "차분한 설명", "친근한 안내"])
     return (audience, tone, extra_notes, target_seconds, enable_audio, voice_style)
 
