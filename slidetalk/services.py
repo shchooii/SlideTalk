@@ -303,22 +303,33 @@ def normalize_audio_for_playback(audio_bytes: bytes | None, mime_type: str) -> t
     return buffer.getvalue(), "audio/wav"
 
 
-def generate_audio_from_script(script: str, voice_style: str) -> AudioResult:
-    client = get_client()
-    response = client.chat.completions.create(
-        model=settings.model,
-        messages=[
-            {
-                "role": "user",
-                "content": [{"type": "text", "text": build_audio_instruction(script, voice_style)}],
-            }
-        ],
-        modalities=["text", "audio"],
-        stream=True,
-    )
+def _audio_format_to_mime(audio_format: str) -> str:
+    mapping = {
+        "mp3": "audio/mpeg",
+        "wav": "audio/wav",
+        "pcm16": "audio/wav",
+        "flac": "audio/flac",
+        "opus": "audio/ogg",
+    }
+    return mapping.get(audio_format, "audio/wav")
 
+
+def _audio_format_to_extension(audio_format: str) -> str:
+    mapping = {
+        "mp3": "mp3",
+        "mpeg": "mp3",
+        "wav": "wav",
+        "pcm16": "wav",
+        "flac": "flac",
+        "opus": "ogg",
+        "ogg": "ogg",
+    }
+    return mapping.get(audio_format, "wav")
+
+
+def _collect_streamed_audio(response, requested_format: str = "wav") -> AudioResult:
     transcript = ""
-    pcm_chunks: list[bytes] = []
+    audio_chunks: list[bytes] = []
 
     for chunk in response:
         raw = chunk.model_dump()
@@ -346,19 +357,47 @@ def generate_audio_from_script(script: str, voice_style: str) -> AudioResult:
             audio_b64_data = audio.get("data") or audio.get("audio")
 
         if isinstance(audio_b64_data, str) and audio_b64_data:
-            pcm_chunks.append(base64.b64decode(audio_b64_data, validate=True))
+            audio_chunks.append(base64.b64decode(audio_b64_data, validate=True))
 
     duration_seconds = 0
-    if pcm_chunks:
-        total_pcm_bytes = sum(len(chunk) for chunk in pcm_chunks)
-        bytes_per_second = INPUT_SAMPLE_RATE * SAMPLE_WIDTH * CHANNELS
-        duration_seconds = int(round(total_pcm_bytes / bytes_per_second))
+    mime_type = _audio_format_to_mime(requested_format)
+    audio_bytes: bytes | None
+    if requested_format in {"wav", "pcm16"}:
+        total_pcm_bytes = sum(len(chunk) for chunk in audio_chunks)
+        if total_pcm_bytes:
+            bytes_per_second = INPUT_SAMPLE_RATE * SAMPLE_WIDTH * CHANNELS
+            duration_seconds = int(round(total_pcm_bytes / bytes_per_second))
+        audio_bytes = _pcm_chunks_to_wav(audio_chunks)
+        mime_type = "audio/wav"
+    else:
+        audio_bytes = b"".join(audio_chunks) if audio_chunks else None
 
     return AudioResult(
         transcript=transcript.strip(),
-        audio_bytes=_pcm_chunks_to_wav(pcm_chunks),
+        audio_bytes=audio_bytes,
+        mime_type=mime_type,
         duration_seconds=duration_seconds,
     )
+
+
+def _request_audio_response(client: OpenAI, script: str, voice_style: str):
+    return client.chat.completions.create(
+        model=settings.model,
+        messages=[
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": build_audio_instruction(script, voice_style)}],
+            }
+        ],
+        modalities=["text", "audio"],
+        stream=True,
+    )
+
+
+def generate_audio_from_script(script: str, voice_style: str) -> AudioResult:
+    client = get_client()
+    response = _request_audio_response(client, script, voice_style)
+    return _collect_streamed_audio(response, "wav")
 
 
 def infer_mime_type(filename: str) -> str:

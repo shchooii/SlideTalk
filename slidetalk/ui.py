@@ -5,12 +5,19 @@ import hashlib
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from slidetalk.config import settings
 from slidetalk.example_cache import get_cached_targets, get_cached_voice_style, load_example_cache
 from slidetalk.example_results import get_example_result
 from slidetalk.models import SlideInput
-from slidetalk.services import generate_audio_from_script, generate_script, infer_mime_type, normalize_audio_for_playback
+from slidetalk.services import (
+    _audio_format_to_extension,
+    generate_audio_from_script,
+    generate_script,
+    infer_mime_type,
+    normalize_audio_for_playback,
+)
 
 MAX_SECONDS_PER_SLIDE = 45
 TIME_OPTIONS = [15, 30, 45]
@@ -232,6 +239,30 @@ def _render_preview_image(uploaded, caption: str) -> None:
 def _to_data_url(path: Path) -> str:
     encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
     return f"data:{infer_mime_type(path.name)};base64,{encoded}"
+
+
+def _render_audio_player(audio_bytes: bytes, mime_type: str, key_suffix: str) -> None:
+    encoded = base64.b64encode(audio_bytes).decode("utf-8")
+    player_id = f"slidetalk-audio-{key_suffix}"
+    components.html(
+        f"""
+        <audio id="{player_id}" controls playsinline preload="metadata" style="width: 100%;"></audio>
+        <script>
+        (function() {{
+            const audio = document.getElementById("{player_id}");
+            const base64 = "{encoded}";
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i += 1) {{
+                bytes[i] = binary.charCodeAt(i);
+            }}
+            const blob = new Blob([bytes], {{ type: "{mime_type}" }});
+            audio.src = URL.createObjectURL(blob);
+        }})();
+        </script>
+        """,
+        height=54,
+    )
 
 
 def _list_example_images() -> list[Path]:
@@ -489,11 +520,12 @@ def _render_audio_panel(script_result, audio_result, is_example: bool, key_suffi
         st.caption(audio_result.transcript)
     if audio_result and audio_result.audio_bytes:
         playback_audio, playback_mime = normalize_audio_for_playback(audio_result.audio_bytes, audio_result.mime_type)
-        st.audio(playback_audio, format=playback_mime)
+        extension = _audio_format_to_extension(playback_mime.split("/")[-1])
+        _render_audio_player(playback_audio, playback_mime, key_suffix)
         st.download_button(
             "오디오 다운로드",
             data=playback_audio,
-            file_name=f"slidetalk-script-{key_suffix}.wav",
+            file_name=f"slidetalk-script-{key_suffix}.{extension}",
             mime=playback_mime,
             key=f"download-audio-{key_suffix}",
         )

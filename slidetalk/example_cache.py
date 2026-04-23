@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from slidetalk.models import AudioResult, ScriptResult
+from slidetalk.services import _audio_format_to_extension
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "example_cache"
 
@@ -16,8 +17,9 @@ def _manifest_path(filename: str) -> Path:
     return _example_dir(filename) / "manifest.json"
 
 
-def _audio_path(filename: str, target_seconds: int) -> Path:
-    return _example_dir(filename) / f"{target_seconds}.wav"
+def _audio_path(filename: str, target_seconds: int, mime_type: str = "audio/wav") -> Path:
+    extension = _audio_format_to_extension(mime_type.split("/")[-1])
+    return _example_dir(filename) / f"{target_seconds}.{extension}"
 
 
 def load_example_cache(filename: str, target_seconds: int) -> tuple[ScriptResult | None, AudioResult | None]:
@@ -41,12 +43,13 @@ def load_example_cache(filename: str, target_seconds: int) -> tuple[ScriptResult
         presentation_points=[str(point) for point in (result_payload.get("presentation_points") or [])],
     )
 
-    audio_file = _audio_path(filename, target_seconds)
+    mime_type = str(result_payload.get("mime_type") or "audio/wav")
+    audio_file = _audio_path(filename, target_seconds, mime_type)
     audio_bytes = audio_file.read_bytes() if audio_file.exists() else None
     audio_result = AudioResult(
         transcript=str(result_payload.get("transcript") or ""),
         audio_bytes=audio_bytes,
-        mime_type=str(result_payload.get("mime_type") or "audio/wav"),
+        mime_type=mime_type,
         duration_seconds=int(result_payload.get("duration_seconds") or 0),
     )
     return script_result, audio_result
@@ -101,7 +104,7 @@ def save_example_cache(
     payload["voice_style"] = voice_style
 
     if audio_result and audio_result.audio_bytes:
-        _audio_path(filename, target_seconds).write_bytes(audio_result.audio_bytes)
+        _audio_path(filename, target_seconds, audio_result.mime_type).write_bytes(audio_result.audio_bytes)
 
     manifest_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
