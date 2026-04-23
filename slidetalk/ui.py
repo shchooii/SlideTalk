@@ -234,6 +234,11 @@ def _to_data_url(path: Path) -> str:
     return f"data:{infer_mime_type(path.name)};base64,{encoded}"
 
 
+def _audio_to_data_url(audio_bytes: bytes, mime_type: str) -> str:
+    encoded = base64.b64encode(audio_bytes).decode("utf-8")
+    return f"data:{mime_type};base64,{encoded}"
+
+
 def _list_example_images() -> list[Path]:
     if not EXAMPLES_DIR.exists():
         return []
@@ -489,7 +494,16 @@ def _render_audio_panel(script_result, audio_result, is_example: bool, key_suffi
         st.caption(audio_result.transcript)
     if audio_result and audio_result.audio_bytes:
         playback_audio, playback_mime = normalize_audio_for_playback(audio_result.audio_bytes, audio_result.mime_type)
-        st.audio(playback_audio, format=playback_mime)
+        audio_src = _audio_to_data_url(playback_audio, playback_mime)
+        st.markdown(
+            f"""
+            <audio controls preload="metadata" playsinline style="width: 100%;">
+                <source src="{audio_src}" type="{playback_mime}">
+                브라우저가 오디오 재생을 지원하지 않습니다.
+            </audio>
+            """,
+            unsafe_allow_html=True,
+        )
         st.download_button(
             "오디오 다운로드",
             data=playback_audio,
