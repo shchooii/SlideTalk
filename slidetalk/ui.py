@@ -10,7 +10,7 @@ from slidetalk.config import settings
 from slidetalk.example_cache import get_cached_targets, get_cached_voice_style, load_example_cache
 from slidetalk.example_results import get_example_result
 from slidetalk.models import SlideInput
-from slidetalk.services import generate_audio_from_script, generate_script, infer_mime_type
+from slidetalk.services import generate_audio_from_script, generate_script, infer_mime_type, normalize_audio_for_playback
 
 MAX_SECONDS_PER_SLIDE = 45
 TIME_OPTIONS = [15, 30, 45]
@@ -488,12 +488,13 @@ def _render_audio_panel(script_result, audio_result, is_example: bool, key_suffi
     if audio_result and audio_result.transcript:
         st.caption(audio_result.transcript)
     if audio_result and audio_result.audio_bytes:
-        st.audio(audio_result.audio_bytes, format=audio_result.mime_type)
+        playback_audio, playback_mime = normalize_audio_for_playback(audio_result.audio_bytes, audio_result.mime_type)
+        st.audio(playback_audio, format=playback_mime)
         st.download_button(
             "오디오 다운로드",
-            data=audio_result.audio_bytes,
+            data=playback_audio,
             file_name=f"slidetalk-script-{key_suffix}.wav",
-            mime=audio_result.mime_type,
+            mime=playback_mime,
             key=f"download-audio-{key_suffix}",
         )
     elif is_example and script_result:

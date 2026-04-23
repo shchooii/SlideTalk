@@ -5,6 +5,7 @@ import json
 import mimetypes
 import re
 import wave
+from array import array
 from io import BytesIO
 
 from openai import OpenAI
@@ -19,7 +20,8 @@ from slidetalk.prompts import (
     build_script_user_prompt,
 )
 
-SAMPLE_RATE = 24000
+INPUT_SAMPLE_RATE = 24000
+PLAYBACK_SAMPLE_RATE = 44100
 SAMPLE_WIDTH = 2
 CHANNELS = 1
 MAX_IMAGE_SIDE = 1280
@@ -235,13 +237,70 @@ def _pcm_chunks_to_wav(pcm_chunks: list[bytes]) -> bytes | None:
     if not pcm_chunks:
         return None
 
+    pcm_data = b"".join(pcm_chunks)
+    pcm_data = _resample_pcm16_mono(pcm_data, INPUT_SAMPLE_RATE, PLAYBACK_SAMPLE_RATE)
     buffer = BytesIO()
     with wave.open(buffer, "wb") as wf:
         wf.setnchannels(CHANNELS)
         wf.setsampwidth(SAMPLE_WIDTH)
-        wf.setframerate(SAMPLE_RATE)
-        wf.writeframes(b"".join(pcm_chunks))
+        wf.setframerate(PLAYBACK_SAMPLE_RATE)
+        wf.writeframes(pcm_data)
     return buffer.getvalue()
+
+
+def _resample_pcm16_mono(pcm_data: bytes, input_rate: int, output_rate: int) -> bytes:
+    if not pcm_data or input_rate == output_rate:
+        return pcm_data
+
+    try:
+        import audioop
+
+        converted, _ = audioop.ratecv(pcm_data, SAMPLE_WIDTH, CHANNELS, input_rate, output_rate, None)
+        return converted
+    except Exception:
+        pass
+
+    samples = array("h")
+    samples.frombytes(pcm_data)
+    if not samples:
+        return pcm_data
+
+    output_length = max(1, int(round(len(samples) * output_rate / input_rate)))
+    step = input_rate / output_rate
+    resampled = array("h")
+    for index in range(output_length):
+        position = index * step
+        left = int(position)
+        right = min(left + 1, len(samples) - 1)
+        fraction = position - left
+        sample = int(round(samples[left] * (1 - fraction) + samples[right] * fraction))
+        resampled.append(sample)
+    return resampled.tobytes()
+
+
+def normalize_audio_for_playback(audio_bytes: bytes | None, mime_type: str) -> tuple[bytes | None, str]:
+    if not audio_bytes:
+        return None, mime_type
+
+    if mime_type not in {"audio/wav", "audio/wave", "audio/x-wav"}:
+        return audio_bytes, mime_type
+
+    try:
+        with wave.open(BytesIO(audio_bytes), "rb") as wav_file:
+            if wav_file.getnchannels() != CHANNELS or wav_file.getsampwidth() != SAMPLE_WIDTH:
+                return audio_bytes, "audio/wav"
+            frames = wav_file.readframes(wav_file.getnframes())
+            converted = _resample_pcm16_mono(frames, wav_file.getframerate(), PLAYBACK_SAMPLE_RATE)
+    except Exception:
+        return audio_bytes, "audio/wav"
+
+    buffer = BytesIO()
+    with wave.open(buffer, "wb") as wav_file:
+        wav_file.setnchannels(CHANNELS)
+        wav_file.setsampwidth(SAMPLE_WIDTH)
+        wav_file.setframerate(PLAYBACK_SAMPLE_RATE)
+        wav_file.writeframes(converted)
+    return buffer.getvalue(), "audio/wav"
 
 
 def generate_audio_from_script(script: str, voice_style: str) -> AudioResult:
@@ -292,7 +351,7 @@ def generate_audio_from_script(script: str, voice_style: str) -> AudioResult:
     duration_seconds = 0
     if pcm_chunks:
         total_pcm_bytes = sum(len(chunk) for chunk in pcm_chunks)
-        bytes_per_second = SAMPLE_RATE * SAMPLE_WIDTH * CHANNELS
+        bytes_per_second = INPUT_SAMPLE_RATE * SAMPLE_WIDTH * CHANNELS
         duration_seconds = int(round(total_pcm_bytes / bytes_per_second))
 
     return AudioResult(
