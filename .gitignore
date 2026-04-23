@@ -140,6 +140,7 @@ celerybeat.pid
 !.env.example
 .envrc
 .venv
+.conda/
 env/
 venv/
 ENV/

@@ -5,6 +5,7 @@ SlideTalk is a simple Streamlit app that turns slide images into:
 - a Korean presentation script
 - estimated speaking time
 - optional generated audio
+- built-in example results for 15, 30, and 45 seconds without API calls
 
 ### Setup
 
@@ -40,7 +41,9 @@ streamlit run app.py
 
 ### Notes
 
-- Uploaded slides are processed in the order they are added in the UI.
+- Built-in examples use local saved results and do not call the API.
+- You can generate and save example script/audio bundles with your API key for 15, 30, and 45 seconds.
+- Only newly uploaded slides call the API.
 - Audio generation depends on the provider returning streamed audio chunks.
 - Streamlit secrets are used first.
 - For Streamlit Community Cloud deployment, set the same keys in the app Secrets settings.
