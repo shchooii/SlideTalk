@@ -4,6 +4,9 @@ import base64
 import json
 import mimetypes
 import re
+import shutil
+import subprocess
+import tempfile
 import wave
 from array import array
 from io import BytesIO
@@ -327,6 +330,46 @@ def _audio_format_to_extension(audio_format: str) -> str:
     return mapping.get(audio_format, "wav")
 
 
+def _maybe_convert_wav_to_mp3(audio_bytes: bytes | None, mime_type: str) -> tuple[bytes | None, str]:
+    if not audio_bytes or mime_type not in {"audio/wav", "audio/wave", "audio/x-wav"}:
+        return audio_bytes, mime_type
+
+    ffmpeg_path = shutil.which("ffmpeg")
+    if not ffmpeg_path:
+        return audio_bytes, mime_type
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        input_path = f"{temp_dir}/input.wav"
+        output_path = f"{temp_dir}/output.mp3"
+        with open(input_path, "wb") as input_file:
+            input_file.write(audio_bytes)
+
+        result = subprocess.run(
+            [
+                ffmpeg_path,
+                "-y",
+                "-i",
+                input_path,
+                "-vn",
+                "-codec:a",
+                "libmp3lame",
+                "-b:a",
+                "128k",
+                output_path,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return audio_bytes, mime_type
+
+        try:
+            with open(output_path, "rb") as output_file:
+                return output_file.read(), "audio/mpeg"
+        except Exception:
+            return audio_bytes, mime_type
+
+
 def _collect_streamed_audio(response, requested_format: str = "wav") -> AudioResult:
     transcript = ""
     audio_chunks: list[bytes] = []
@@ -371,6 +414,9 @@ def _collect_streamed_audio(response, requested_format: str = "wav") -> AudioRes
         mime_type = "audio/wav"
     else:
         audio_bytes = b"".join(audio_chunks) if audio_chunks else None
+
+    if audio_bytes and requested_format in {"wav", "pcm16"}:
+        audio_bytes, mime_type = _maybe_convert_wav_to_mp3(audio_bytes, mime_type)
 
     return AudioResult(
         transcript=transcript.strip(),
