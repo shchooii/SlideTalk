@@ -513,7 +513,6 @@ def run_app() -> None:
             <div class="slidetalk-hero-title">SlideTalk</div>
             <a class="slidetalk-hero-link" href="https://api-omni.kanana.ai/result" target="_blank" rel="noopener noreferrer">kanana-o model</a>
             <div class="slidetalk-hero-meta">kanana-o 멀티모달 언어모델을 사용해 대본 텍스트와 오디오를 생성합니다. </div>
-            <div class="slidetalk-hero-meta"> kanana-o는 보고, 듣고, 이해하며 감정까지 표현하는 통합 멀티모달 언어모델입니다.</div>
         </div>
         """,
         unsafe_allow_html=True,
