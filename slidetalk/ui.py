@@ -269,8 +269,6 @@ def _list_example_images() -> list[Path]:
     if not EXAMPLES_DIR.exists():
         return []
     files = [path for path in sorted(EXAMPLES_DIR.iterdir()) if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}]
-    preferred_order = {"example2.png": 0, "example3.png": 1, "example1.png": 2}
-    files.sort(key=lambda path: (preferred_order.get(path.name, len(preferred_order)), path.name))
     return files
 
 
