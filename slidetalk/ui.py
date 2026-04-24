@@ -332,7 +332,7 @@ def _render_example_picker(selected_name: str | None) -> None:
         return
 
     st.markdown('<div class="slidetalk-kicker">Examples</div>', unsafe_allow_html=True)
-    st.caption("예시는 드롭다운에서 고를 수 있습니다.")
+    st.caption("예시는 별도의 생성 모델에서 생성된 이미지입니다.")
     names = [image_path.name for image_path in example_images]
     options = ["선택 안 함", *names]
     current_value = selected_name if selected_name in names else "선택 안 함"
@@ -489,7 +489,7 @@ def _render_source_banner(source, is_example: bool, target_seconds: int) -> None
     if is_example:
         message = f"<strong>{source.name}</strong> · 미리 돌려둔 예시 결과 · {target_seconds}초"
     else:
-        message = f"<strong>{source.name}</strong> · 새 이미지 API 호출 가능 · 일일 한도 있음"
+        message = f"<strong>{source.name}</strong> · 새 이미지 API 호출 가능 · 일일 한도 10회"
 
     st.markdown(f'<div class="slidetalk-banner">{message}</div>', unsafe_allow_html=True)
 
