@@ -4,7 +4,7 @@ from slidetalk.models import ScriptResult
 
 
 EXAMPLE_RESULTS: dict[str, dict[int, dict[str, object]]] = {
-    "example1.png": {
+    "example3.png": {
         15: {
             "summary": "AI 기술은 머신러닝에서 딥러닝, 생성형 AI로 발전하며 산업 혁신과 윤리 이슈를 함께 만들고 있습니다.",
             "presentation_points": ["기술 발전 흐름", "산업별 혁신", "윤리적 고려"],
@@ -24,7 +24,7 @@ EXAMPLE_RESULTS: dict[str, dict[int, dict[str, object]]] = {
             "estimated_minutes": 0.75,
         },
     },
-    "example2.png": {
+    "example1.png": {
         15: {
             "summary": "전략적 성장 계획은 시장 분석, 제품 혁신, 마케팅, 성과 모니터링을 분기 목표와 연결해 실행하는 구조입니다.",
             "presentation_points": ["4단계 실행 구조", "분기별 목표", "매출 성장 계획"],
@@ -44,7 +44,7 @@ EXAMPLE_RESULTS: dict[str, dict[int, dict[str, object]]] = {
             "estimated_minutes": 0.75,
         },
     },
-    "example3.png": {
+    "example2.png": {
         15: {
             "summary": "지구 온난화는 온실가스와 산림 벌채로 심화되고 있으며, 에너지 절약과 재활용 같은 실천이 중요합니다.",
             "presentation_points": ["원인과 영향", "생활 속 실천", "공동의 역할"],
